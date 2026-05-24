@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: nexusdesk_db
+    environment:
+      POSTGRES_USER: nexusdesk
+      POSTGRES_PASSWORD: nexusdesk123
+      POSTGRES_DB: nexusdesk
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexusdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: nexusdesk_api
+    environment:
+      DATABASE_URL: postgresql://nexusdesk:nexusdesk123@postgres:5432/nexusdesk
+      JWT_SECRET: nexusdesk_super_secret_jwt_key_troque_em_producao
+      JWT_EXPIRES_IN: 7d
+      PORT: 3333
+      NODE_ENV: development
+    ports:
+      - "3333:3333"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm run dev"
+
+volumes:
+  pgdata:
+  uploads:
