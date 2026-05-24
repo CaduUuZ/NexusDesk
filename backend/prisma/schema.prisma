@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  TECHNICIAN
+  ADMIN
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticketsCreated  Ticket[]    @relation("TicketCreator")
+  ticketsAssigned Ticket[]    @relation("TicketAssignee")
+  comments        Comment[]
+  attachments     Attachment[]
+  notifications   Notification[]
+
+  @@map("users")
+}
+
+model Ticket {
+  id          String       @id @default(uuid())
+  title       String
+  description String
+  status      TicketStatus @default(OPEN)
+  priority    Priority     @default(MEDIUM)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  closedAt    DateTime?    @map("closed_at")
+
+  userId     String  @map("user_id")
+  assignedTo String? @map("assigned_to")
+
+  creator  User  @relation("TicketCreator", fields: [userId], references: [id])
+  assignee User? @relation("TicketAssignee", fields: [assignedTo], references: [id])
+
+  comments      Comment[]
+  attachments   Attachment[]
+  notifications Notification[]
+
+  @@map("tickets")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticketId String @map("ticket_id")
+  userId   String @map("user_id")
+
+  ticket      Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id])
+  attachments Attachment[]
+
+  @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  fileUrl   String   @map("file_url")
+  fileName  String   @map("file_name")
+  fileSize  Int      @map("file_size")
+  mimeType  String   @map("mime_type")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticketId   String? @map("ticket_id")
+  commentId  String? @map("comment_id")
+  uploadedBy String  @map("uploaded_by")
+
+  ticket   Ticket?  @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  comment  Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploader User     @relation(fields: [uploadedBy], references: [id])
+
+  @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  userId   String  @map("user_id")
+  ticketId String? @map("ticket_id")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
